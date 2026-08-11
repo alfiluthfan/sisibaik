@@ -1,0 +1,166 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
+import { redirect } from "next/navigation";
+
+import { createClient } from "@/lib/supabase/server";
+
+import { requireApprovedMerchant } from "@/lib/merchant/get-merchant";
+
+import { productSchema, updateProductSchema } from "./schemas";
+
+export async function createProductAction(formData: FormData) {
+  const { merchant } = await requireApprovedMerchant();
+
+  const parsed = productSchema.safeParse({
+    name: formData.get("name"),
+
+    description: formData.get("description"),
+
+    categoryId: formData.get("categoryId"),
+
+    normalPrice: formData.get("normalPrice"),
+
+    surplusPrice: formData.get("surplusPrice"),
+
+    availableStock: formData.get("availableStock"),
+
+    pickupDeadline: formData.get("pickupDeadline"),
+
+    status: formData.get("status"),
+  });
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Data produk tidak valid.",
+    };
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("products")
+    .insert({
+      merchant_id: merchant.id,
+
+      category_id: parsed.data.categoryId,
+
+      name: parsed.data.name,
+
+      description: parsed.data.description || null,
+
+      normal_price: parsed.data.normalPrice,
+
+      surplus_price: parsed.data.surplusPrice,
+
+      available_stock: parsed.data.availableStock,
+
+      pickup_deadline: new Date(parsed.data.pickupDeadline).toISOString(),
+
+      status: parsed.data.status,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+
+  revalidatePath("/merchant/products");
+
+  revalidatePath("/merchant/inventory");
+
+  redirect(`/merchant/products/${data.id}/edit`);
+}
+
+export async function updateProductAction(
+  productId: string,
+  formData: FormData,
+) {
+  await requireApprovedMerchant();
+
+  const parsed = updateProductSchema.safeParse({
+    name: formData.get("name"),
+
+    description: formData.get("description"),
+
+    categoryId: formData.get("categoryId"),
+
+    normalPrice: formData.get("normalPrice"),
+
+    surplusPrice: formData.get("surplusPrice"),
+
+    pickupDeadline: formData.get("pickupDeadline"),
+
+    status: formData.get("status"),
+  });
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Data tidak valid.",
+    };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("products")
+    .update({
+      category_id: parsed.data.categoryId,
+
+      name: parsed.data.name,
+
+      description: parsed.data.description || null,
+
+      normal_price: parsed.data.normalPrice,
+
+      surplus_price: parsed.data.surplusPrice,
+
+      pickup_deadline: new Date(parsed.data.pickupDeadline).toISOString(),
+
+      status: parsed.data.status,
+    })
+    .eq("id", productId);
+
+  if (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+
+  revalidatePath("/merchant/products");
+
+  revalidatePath(`/merchant/products/${productId}/edit`);
+
+  return {
+    success: true,
+  };
+}
+
+export async function archiveProductAction(productId: string) {
+  await requireApprovedMerchant();
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("products")
+    .update({
+      status: "archived",
+    })
+    .eq("id", productId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/merchant/products");
+
+  revalidatePath("/merchant/inventory");
+}

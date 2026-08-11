@@ -13,15 +13,15 @@ export async function createClient() {
           return cookieStore.getAll();
         },
 
-        setAll(cookiesToSet, _headers) {
+        setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
           } catch {
             /*
-             * Bisa terjadi ketika dipanggil dari Server Component.
-             * Tidak masalah selama Proxy menangani refresh session.
+             * setAll dapat dipanggil dari Server Component.
+             * Cookie refresh tetap ditangani oleh Proxy.
              */
           }
         },
