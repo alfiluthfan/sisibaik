@@ -1,123 +1,152 @@
+import Link from "next/link";
+
 import { notFound } from "next/navigation";
+
+import { requireApprovedMerchant } from "@/lib/merchant/get-merchant";
 
 import { createClient } from "@/lib/supabase/server";
 
-import { requireMerchant } from "@/lib/merchant/get-merchant";
+import { StockAdjustmentForm } from "@/features/inventory/components/stock-adjustment-form";
 
-import { StockForm } from "@/features/inventory/components/stock-form";
-
-interface PageProps {
+interface InventoryDetailProps {
   params: Promise<{
     productId: string;
   }>;
 }
 
-export default async function InventoryDetailPage({ params }: PageProps) {
-  await requireMerchant();
+export default async function InventoryDetailPage({
+  params,
+}: InventoryDetailProps) {
+  const { merchant } = await requireApprovedMerchant();
 
   const { productId } = await params;
 
   const supabase = await createClient();
 
-  const { data: product } = await supabase
+  const { data: product, error } = await supabase
     .from("products")
     .select(
       `
-      id,
-      name,
-      available_stock,
-      status
-    `,
+        id,
+        name,
+        available_stock,
+        status
+      `,
     )
     .eq("id", productId)
+    .eq("merchant_id", merchant.id)
     .maybeSingle();
 
-  if (!product) {
+  if (error || !product) {
     notFound();
   }
 
-  const { data: logs } = await supabase
+  const { data: logs, error: logsError } = await supabase
     .from("inventory_logs")
     .select(
       `
-      id,
-      previous_stock,
-      current_stock,
-      quantity_change,
-      activity_type,
-      notes,
-      created_at
-    `,
+        id,
+        previous_stock,
+        current_stock,
+        quantity_change,
+        activity_type,
+        notes,
+        created_at
+      `,
     )
-    .eq("product_id", productId)
+    .eq("product_id", product.id)
     .order("created_at", {
       ascending: false,
     });
 
+  if (logsError) {
+    throw new Error(logsError.message);
+  }
+
   return (
-    <main className="p-8">
-      <div>
-        <p className="text-sm text-gray-500">Inventory</p>
+    <main className="min-h-screen bg-gray-50 p-8">
+      <div className="mx-auto max-w-6xl">
+        <Link href="/merchant/inventory" className="text-sm text-gray-500">
+          ← Kembali ke Inventory
+        </Link>
 
-        <h1 className="text-3xl font-bold">{product.name}</h1>
+        <div className="mt-5">
+          <h1 className="text-3xl font-bold">{product.name}</h1>
 
-        <p className="mt-2 text-gray-600">
-          Stok saat ini: <strong>{product.available_stock}</strong>
-        </p>
-      </div>
+          <p className="mt-2 text-gray-600">
+            Stok saat ini: <strong>{product.available_stock}</strong>
+          </p>
+        </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[400px_1fr]">
-        <section className="rounded-xl border p-6">
-          <h2 className="text-lg font-semibold">Update Stok</h2>
+        <div className="mt-8 grid gap-8 lg:grid-cols-[380px_1fr]">
+          {/* STOCK FORM */}
 
-          <div className="mt-6">
-            <StockForm productId={product.id} />
-          </div>
-        </section>
+          <section className="rounded-2xl border bg-white p-6">
+            <h2 className="text-lg font-semibold">Update Stok</h2>
 
-        <section>
-          <h2 className="text-lg font-semibold">Riwayat Stok</h2>
+            <div className="mt-5">
+              <StockAdjustmentForm productId={product.id} />
+            </div>
+          </section>
 
-          <div className="mt-4 overflow-hidden rounded-xl border">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="p-3 text-left">Aktivitas</th>
+          {/* LOGS */}
 
-                  <th className="p-3">Sebelum</th>
+          <section>
+            <h2 className="text-lg font-semibold">Riwayat Stok</h2>
 
-                  <th className="p-3">Perubahan</th>
+            <div className="mt-4 overflow-hidden rounded-2xl border bg-white">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="p-4 text-left">Aktivitas</th>
 
-                  <th className="p-3">Sesudah</th>
+                    <th className="p-4 text-center">Sebelum</th>
 
-                  <th className="p-3">Waktu</th>
-                </tr>
-              </thead>
+                    <th className="p-4 text-center">Perubahan</th>
 
-              <tbody>
-                {logs?.map((log) => (
-                  <tr key={log.id} className="border-t">
-                    <td className="p-3">{log.activity_type}</td>
+                    <th className="p-4 text-center">Sesudah</th>
 
-                    <td className="p-3 text-center">{log.previous_stock}</td>
+                    <th className="p-4 text-left">Catatan</th>
 
-                    <td className="p-3 text-center">
-                      {log.quantity_change > 0 ? "+" : ""}
-
-                      {log.quantity_change}
-                    </td>
-
-                    <td className="p-3 text-center">{log.current_stock}</td>
-
-                    <td className="p-3 text-sm">
-                      {new Date(log.created_at).toLocaleString("id-ID")}
-                    </td>
+                    <th className="p-4 text-left">Waktu</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                </thead>
+
+                <tbody>
+                  {logs?.map((log) => (
+                    <tr key={log.id} className="border-t">
+                      <td className="p-4 text-sm">{log.activity_type}</td>
+
+                      <td className="p-4 text-center">{log.previous_stock}</td>
+
+                      <td className="p-4 text-center font-medium">
+                        {log.quantity_change > 0 ? "+" : ""}
+
+                        {log.quantity_change}
+                      </td>
+
+                      <td className="p-4 text-center">{log.current_stock}</td>
+
+                      <td className="p-4 text-sm text-gray-500">
+                        {log.notes ?? "-"}
+                      </td>
+
+                      <td className="p-4 text-sm text-gray-500">
+                        {new Date(log.created_at).toLocaleString("id-ID")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {logs?.length === 0 && (
+                <div className="p-10 text-center text-gray-500">
+                  Belum ada riwayat stok.
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
     </main>
   );

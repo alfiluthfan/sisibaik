@@ -2,16 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireApprovedMerchant } from "@/lib/merchant/get-merchant";
+
 import { createClient } from "@/lib/supabase/server";
 
-import { requireMerchant } from "@/lib/merchant/get-merchant";
+import { stockAdjustmentSchema } from "./schemas";
 
-import { stockSchema } from "./schemas";
+export interface InventoryActionState {
+  error?: string;
+  success?: string;
+}
 
-export async function adjustStockAction(formData: FormData) {
-  await requireMerchant();
+export async function adjustStockAction(
+  _previousState: InventoryActionState,
 
-  const parsed = stockSchema.safeParse({
+  formData: FormData,
+): Promise<InventoryActionState> {
+  await requireApprovedMerchant();
+
+  const parsed = stockAdjustmentSchema.safeParse({
     productId: formData.get("productId"),
 
     quantityChange: formData.get("quantityChange"),
@@ -23,14 +32,13 @@ export async function adjustStockAction(formData: FormData) {
 
   if (!parsed.success) {
     return {
-      success: false,
       error: parsed.error.issues[0]?.message ?? "Data stok tidak valid.",
     };
   }
 
   const supabase = await createClient();
 
-  const { data: newStock, error } = await supabase.rpc("adjust_product_stock", {
+  const { data, error } = await supabase.rpc("adjust_product_stock", {
     p_product_id: parsed.data.productId,
 
     p_quantity_change: parsed.data.quantityChange,
@@ -42,7 +50,6 @@ export async function adjustStockAction(formData: FormData) {
 
   if (error) {
     return {
-      success: false,
       error: error.message,
     };
   }
@@ -54,7 +61,6 @@ export async function adjustStockAction(formData: FormData) {
   revalidatePath(`/merchant/inventory/${parsed.data.productId}`);
 
   return {
-    success: true,
-    stock: newStock,
+    success: `Stok berhasil diperbarui menjadi ${data}.`,
   };
 }

@@ -4,16 +4,24 @@ import { revalidatePath } from "next/cache";
 
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
-
 import { requireApprovedMerchant } from "@/lib/merchant/get-merchant";
 
-import { productSchema, updateProductSchema } from "./schemas";
+import { createClient } from "@/lib/supabase/server";
 
-export async function createProductAction(formData: FormData) {
+import { createProductSchema, updateProductSchema } from "./schemas";
+
+export interface ProductActionState {
+  error?: string;
+  success?: string;
+}
+
+export async function createProductAction(
+  _previousState: ProductActionState,
+  formData: FormData,
+): Promise<ProductActionState> {
   const { merchant } = await requireApprovedMerchant();
 
-  const parsed = productSchema.safeParse({
+  const parsed = createProductSchema.safeParse({
     name: formData.get("name"),
 
     description: formData.get("description"),
@@ -33,7 +41,6 @@ export async function createProductAction(formData: FormData) {
 
   if (!parsed.success) {
     return {
-      success: false,
       error: parsed.error.issues[0]?.message ?? "Data produk tidak valid.",
     };
   }
@@ -66,7 +73,6 @@ export async function createProductAction(formData: FormData) {
 
   if (error) {
     return {
-      success: false,
       error: error.message,
     };
   }
@@ -80,9 +86,10 @@ export async function createProductAction(formData: FormData) {
 
 export async function updateProductAction(
   productId: string,
+  _previousState: ProductActionState,
   formData: FormData,
-) {
-  await requireApprovedMerchant();
+): Promise<ProductActionState> {
+  const { merchant } = await requireApprovedMerchant();
 
   const parsed = updateProductSchema.safeParse({
     name: formData.get("name"),
@@ -102,8 +109,7 @@ export async function updateProductAction(
 
   if (!parsed.success) {
     return {
-      success: false,
-      error: parsed.error.issues[0]?.message ?? "Data tidak valid.",
+      error: parsed.error.issues[0]?.message ?? "Data produk tidak valid.",
     };
   }
 
@@ -126,11 +132,11 @@ export async function updateProductAction(
 
       status: parsed.data.status,
     })
-    .eq("id", productId);
+    .eq("id", productId)
+    .eq("merchant_id", merchant.id);
 
   if (error) {
     return {
-      success: false,
       error: error.message,
     };
   }
@@ -140,12 +146,12 @@ export async function updateProductAction(
   revalidatePath(`/merchant/products/${productId}/edit`);
 
   return {
-    success: true,
+    success: "Produk berhasil diperbarui.",
   };
 }
 
 export async function archiveProductAction(productId: string) {
-  await requireApprovedMerchant();
+  const { merchant } = await requireApprovedMerchant();
 
   const supabase = await createClient();
 
@@ -154,7 +160,8 @@ export async function archiveProductAction(productId: string) {
     .update({
       status: "archived",
     })
-    .eq("id", productId);
+    .eq("id", productId)
+    .eq("merchant_id", merchant.id);
 
   if (error) {
     throw new Error(error.message);

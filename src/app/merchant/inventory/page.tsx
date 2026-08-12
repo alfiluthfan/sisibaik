@@ -1,55 +1,65 @@
 import Link from "next/link";
 
+import { requireApprovedMerchant } from "@/lib/merchant/get-merchant";
+
 import { createClient } from "@/lib/supabase/server";
 
-import { requireMerchant } from "@/lib/merchant/get-merchant";
-
 export default async function InventoryPage() {
-  const { merchant } = await requireMerchant();
+  const { merchant } = await requireApprovedMerchant();
 
   const supabase = await createClient();
 
-  const { data: products } = await supabase
+  const { data: products, error } = await supabase
     .from("products")
     .select(
       `
-      id,
-      name,
-      available_stock,
-      status,
-      pickup_deadline
-    `,
+        id,
+        name,
+        available_stock,
+        status,
+        pickup_deadline
+      `,
     )
     .eq("merchant_id", merchant.id)
     .neq("status", "archived")
     .order("name");
 
+  if (error) {
+    throw new Error(error.message);
+  }
+
   return (
     <main className="p-8">
       <div>
-        <p className="text-sm text-gray-500">Inventory</p>
+        <p className="text-sm text-gray-500">Merchant</p>
 
-        <h1 className="text-3xl font-bold">Stok Produk</h1>
+        <h1 className="text-3xl font-bold">Inventory</h1>
+
+        <p className="mt-2 text-gray-600">Kelola stok makanan surplus Anda.</p>
       </div>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {products?.map((product) => (
-          <article key={product.id} className="rounded-xl border p-5">
-            <h2 className="font-semibold">{product.name}</h2>
+          <article key={product.id} className="rounded-2xl border bg-white p-6">
+            <div className="flex justify-between">
+              <h2 className="font-semibold">{product.name}</h2>
 
-            <div className="mt-4">
-              <span className="text-3xl font-bold">
+              <span className="text-xs capitalize text-gray-500">
+                {product.status}
+              </span>
+            </div>
+
+            <div className="mt-5">
+              <span className="text-4xl font-bold">
                 {product.available_stock}
               </span>
 
-              <span className="ml-2 text-sm text-gray-500">stok</span>
+              <span className="ml-2 text-sm text-gray-500">stok tersedia</span>
             </div>
-
-            <p className="mt-2 text-sm text-gray-500">{product.status}</p>
 
             <Link
               href={`/merchant/inventory/${product.id}`}
-              className="mt-5 inline-block rounded-lg border px-4 py-2 text-sm"
+              className="mt-6 block rounded-lg border px-4 py-3 text-center text-sm font-medium"
             >
               Kelola Stok
             </Link>
