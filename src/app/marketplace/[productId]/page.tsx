@@ -15,6 +15,8 @@ import { getProductSellingState } from "@/features/products/utils/selling-state"
 
 import { SellingCountdown } from "@/features/marketplace/components/selling-countdown";
 
+import { ReservationForm } from "@/features/orders/components/reservation-form";
+
 interface ProductDetailProps {
   params: Promise<{
     productId: string;
@@ -213,18 +215,20 @@ export default async function ProductDetailPage({
 
             {/* RESERVATION */}
 
-            <div className="mt-8">
-              <button
-                type="button"
-                disabled
-                className="w-full rounded-xl bg-black px-5 py-4 font-semibold text-white disabled:opacity-50"
-              >
-                Reservasi Makanan
-              </button>
+            <div className="mt-8 border-t pt-6">
+              <h2 className="font-semibold">Reservasi</h2>
 
-              <p className="mt-2 text-center text-xs text-gray-400">
-                Fitur reservasi akan dibuat pada sprint berikutnya.
+              <p className="mt-1 text-sm text-gray-500">
+                Pilih jumlah makanan yang ingin Anda ambil.
               </p>
+
+              <div className="mt-5">
+                <ReservationForm
+                  productId={product.id}
+                  availableStock={product.available_stock}
+                  price={Number(product.surplus_price)}
+                />
+              </div>
             </div>
           </section>
         </div>

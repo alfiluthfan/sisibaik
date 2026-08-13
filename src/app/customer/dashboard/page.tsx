@@ -28,6 +28,9 @@ export default async function CustomerDashboardPage() {
         >
           Cari Makanan Surplus
         </Link>
+        <Link href="/customer/orders" className="rounded-xl border px-5 py-3">
+          Reservasi Saya
+        </Link>
         ;
       </section>
     </main>
