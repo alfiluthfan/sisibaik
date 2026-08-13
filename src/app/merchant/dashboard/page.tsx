@@ -2,6 +2,8 @@ import { requireApprovedMerchant } from "@/lib/merchant/get-merchant";
 
 import { LogoutButton } from "@/features/auth/components/logout-button";
 
+import Link from "next/link";
+
 export default async function MerchantDashboardPage() {
   const { profile, merchant } = await requireApprovedMerchant();
 
@@ -14,6 +16,8 @@ export default async function MerchantDashboardPage() {
           <h1 className="text-3xl font-bold">{merchant.business_name}</h1>
 
           <p className="mt-1 text-gray-500">Halo, {profile.name}</p>
+
+          <Link href="/merchant/orders">Reservasi Masuk</Link>
         </div>
 
         <LogoutButton />

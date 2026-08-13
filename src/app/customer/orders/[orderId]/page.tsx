@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 
 import { OrderStatusBadge } from "@/features/orders/components/order-status-badge";
 
+import { CancelReservationForm } from "@/features/orders/components/cancel-reservation-form";
+
 interface Props {
   params: Promise<{
     orderId: string;
@@ -150,6 +152,22 @@ export default async function CustomerOrderDetailPage({ params }: Props) {
               </p>
             </div>
           </div>
+
+          {order.status === "reserved" &&
+            new Date(order.pickup_deadline) > new Date() && (
+              <section className="mt-8 rounded-2xl border border-red-100 p-6">
+                <h2 className="font-semibold">Batalkan Reservasi</h2>
+
+                <p className="mt-2 text-sm text-gray-500">
+                  Stok makanan akan dikembalikan agar dapat dipesan pengguna
+                  lain.
+                </p>
+
+                <div className="mt-5">
+                  <CancelReservationForm orderId={order.id} />
+                </div>
+              </section>
+            )}
         </section>
       </div>
     </main>
