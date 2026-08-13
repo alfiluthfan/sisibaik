@@ -43,26 +43,77 @@ export const createProductSchema = baseProductSchema.superRefine(
 );
 
 // 3. Lakukan .omit() pada base schema, lalu buat superRefine baru khusus update
-export const updateProductSchema = baseProductSchema
-  .omit({ availableStock: true }) // Omit sekarang berjalan di ZodObject murni
+// export const updateProductSchema = baseProductSchema
+//   .omit({ availableStock: true }) // Omit sekarang berjalan di ZodObject murni
+//   .superRefine((data, ctx) => {
+//     // Pengecekan surplus price tetap dimasukkan
+//     if (data.surplusPrice > data.normalPrice) {
+//       ctx.addIssue({
+//         code: "custom",
+//         path: ["surplusPrice"],
+//         message: "Harga surplus tidak boleh melebihi harga normal.",
+//       });
+//     }
+
+//     // Pengecekan availableStock dihapus di sini karena field-nya sudah di-omit
+
+//     // Pengecekan deadline tetap dimasukkan
+//     const deadline = new Date(data.pickupDeadline);
+//     if (Number.isNaN(deadline.getTime()) || deadline <= new Date()) {
+//       ctx.addIssue({
+//         code: "custom",
+//         path: ["pickupDeadline"],
+//         message: "Pickup deadline harus berada di masa depan.",
+//       });
+//     }
+//   });
+
+export const productStatusSchema = z.enum([
+  "draft",
+  "active",
+  "sold_out",
+  "expired",
+  "archived",
+]);
+
+export const updateProductSchema = z
+  .object({
+    name: z.string().trim().min(2, "Nama produk minimal 2 karakter.").max(150),
+
+    description: z.string().trim().max(1000).optional(),
+
+    categoryId: z.string().uuid("Kategori tidak valid."),
+
+    normalPrice: z.coerce.number().positive("Harga normal harus lebih dari 0."),
+
+    surplusPrice: z.coerce.number().min(0),
+
+    pickupDeadline: z
+      .string()
+      .refine(
+        (value) => !Number.isNaN(Date.parse(value)),
+        "Pickup deadline tidak valid.",
+      ),
+
+    status: productStatusSchema,
+  })
   .superRefine((data, ctx) => {
-    // Pengecekan surplus price tetap dimasukkan
     if (data.surplusPrice > data.normalPrice) {
       ctx.addIssue({
         code: "custom",
+
         path: ["surplusPrice"],
-        message: "Harga surplus tidak boleh melebihi harga normal.",
+
+        message: "Harga surplus tidak boleh lebih besar dari harga normal.",
       });
     }
 
-    // Pengecekan availableStock dihapus di sini karena field-nya sudah di-omit
-
-    // Pengecekan deadline tetap dimasukkan
-    const deadline = new Date(data.pickupDeadline);
-    if (Number.isNaN(deadline.getTime()) || deadline <= new Date()) {
+    if (new Date(data.pickupDeadline) <= new Date()) {
       ctx.addIssue({
         code: "custom",
+
         path: ["pickupDeadline"],
+
         message: "Pickup deadline harus berada di masa depan.",
       });
     }
